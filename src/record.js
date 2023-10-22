@@ -1,8 +1,30 @@
-import { useAudioRecorder } from 'react-audio-voice-recorder';
-import React, { useEffect } from 'react';
-import * as ReactDOM from 'react-dom';
+import { useAudioRecorder } from 'react-audio-voice-recorder'
+import React, { useEffect, useState } from 'react'
+import * as ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client';
+import fs from "fs"
+const config = require('./config.json')
+const apiKey = config.GOOGLE_API_KEY
 
 const Audio = () => {
+
+  const openai = new OpenAI({
+    apiKey: apiKey, // This is also the default, can be omitted
+    dangerouslyAllowBrowser: true
+  });
+
+  async function handleSpeech(blob) {
+
+    const formData = new FormData();
+    formData.append('file', blob);
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream("audio.mp3"),
+      model: "whisper-1",
+    });
+  
+    console.log(transcription.text);
+  }
 
   const {
     startRecording,
@@ -17,51 +39,39 @@ const Audio = () => {
 
   const AudioElement = (props) => {
     return (
-      <>
-        <audio src={props.source} preload="metadata" loop></audio>
-        <p>audio player ish</p>
-        <button id="play-icon"></button>
-        <span id="current-time" class="time">0:00</span>
-        <input type="range" id="seek-slider" max="100" value="0" />
-        <span id="duration" class="time">0:00</span>
-        <output id="volume-output">100</output>
-        <input type="range" id="volume-slider" max="100" value="100" />
-        <button id="mute-icon"></button>
-      </>
+      <div className="entry">
+        <audio controls src={props.source} preload="metadata"></audio>
+        <textarea defaultValue="result" />
+      </div>
     )
   }
 
+  // Create a new instance of Audio Element with the new recording
+  const addAudioElement = (blob) => {
+    const url = URL.createObjectURL(blob);
+    const audioPlayer = document.createElement("div");
+    audioPlayer.className = "audio-element"
+    document.getElementById("audio-container").prepend(audioPlayer)
+    const root = createRoot(audioPlayer)
+    root.render(<AudioElement source={url}/>)
+  };
+  
+
   useEffect(() => {
     if (!recordingBlob) return;
-  
-    // recordingBlob will be present at this point after 'stopRecording' has been called
+
+    handleSpeech(recordingBlob)
     addAudioElement(recordingBlob)
+
     
   }, [recordingBlob])
 
-  const addAudioElement = (blob) => {
-    const url = URL.createObjectURL(blob);
-    const targetDiv = document.getElementById("audio-container");
-    const newDiv = document.createElement("div");
-    newDiv.className = "audio-player-container"
-    targetDiv.appendChild(newDiv);
-
-    ReactDOM.render(<AudioElement source={url}/>, newDiv);
-
-    // const audioContainer = document.createElement("div");
-    // const audio = document.createElement("audio");
-    // audioContainer.appendChild(audio);
-    // audio.src = url;
-    // audio.controls = true;
-    // document.body.appendChild(audioContainer);
-  };
-
   return (
-    <div>
-      <button onClick={startRecording}>Start recording</button>
-      <button onClick={stopRecording}>Stop recording</button>
+    <>
+      <button onClick={startRecording}>REC</button>
+      <button onClick={stopRecording}>STOP</button>
       <div id="audio-container"></div>
-    </div>
+    </>
   )
 }
 
